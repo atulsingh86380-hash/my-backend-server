@@ -22,7 +22,7 @@ def chat():
         if not API_KEY:
             return jsonify({"error": "GEMINI_API_KEY environment variable missing"}), 500
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
+url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={API_KEY}"
 
         payload = {
             "contents": [
