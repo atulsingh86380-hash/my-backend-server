@@ -11,6 +11,18 @@ API_KEY = os.environ.get("GEMINI_API_KEY")
 def home():
     return jsonify({"status": "running", "message": "AI Backend Server is Online!"})
 
+# यह रूट Google से आपकी API Key के एक्टिव मॉडल्स की सही लिस्ट लाकर देगा
+@app.route("/models", methods=["GET"])
+def list_models():
+    if not API_KEY:
+        return jsonify({"error": "GEMINI_API_KEY missing"}), 500
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models?key={API_KEY}"
+        resp = requests.get(url, timeout=10)
+        return jsonify(resp.json()), resp.status_code
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 @app.route("/chat", methods=["POST"])
 def chat():
     try:
@@ -23,48 +35,29 @@ def chat():
         if not API_KEY:
             return jsonify({"error": "GEMINI_API_KEY environment variable missing"}), 500
 
-        # केवल वर्तमान एक्टिव और सपोर्टेड मॉडल्स
-        models = [
-            "gemini-3.8-flash",
-            "gemini-3.8-flash-lite"
-        ]
-
-        payload = {
-            "contents": [
-                {
-                    "parts": [{"text": user_message}]
-                }
-            ]
-        }
+        # प्राथमिक मॉडल gemini-3.8-flash (जो Google ने खुद एरर में दिया था)
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key={API_KEY}"
+        payload = {"contents": [{"parts": [{"text": user_message}]}]}
         headers = {"Content-Type": "application/json"}
 
-        last_error = None
+        # 503 ओवरलोड से बचने के लिए 3 बार तुरंत ऑटो-रिट्राई
+        last_res = None
+        for attempt in range(3):
+            response = requests.post(url, json=payload, headers=headers, timeout=20)
+            res_data = response.json()
 
-        # 503 लोड से निपटने के लिए रिट्राई + फॉलबैक
-        for model in models:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={API_KEY}"
-            for attempt in range(2):  # हर मॉडल को 2 बार मौका (अस्थायी 503 से बचने के लिए)
-                try:
-                    response = requests.post(url, json=payload, headers=headers, timeout=15)
-                    res_data = response.json()
+            if response.status_code == 200:
+                ai_reply = res_data["candidates"][0]["content"]["parts"][0]["text"]
+                return jsonify({"reply": ai_reply, "model": "gemini-3.8-flash"})
 
-                    if response.status_code == 200:
-                        ai_reply = res_data["candidates"][0]["content"]["parts"][0]["text"]
-                        return jsonify({"reply": ai_reply, "model": model})
+            last_res = res_data
+            if response.status_code == 503:
+                time.sleep(2)  # 2 सेकंड रुककर फिर से कोशिश
+                continue
+            else:
+                break
 
-                    last_error = res_data
-
-                    # अगर 503 हाई डिमांड है तो 1.5 सेकंड रुककर दोबारा कोशिश
-                    if response.status_code == 503:
-                        time.sleep(1.5)
-                        continue
-                    else:
-                        break  # 404 या अन्य एरर होने पर सीधे अगले मॉडल पर जाएं
-                except Exception as req_err:
-                    last_error = str(req_err)
-                    time.sleep(1)
-
-        return jsonify({"error": last_error}), 503
+        return jsonify({"error": last_res}), 503
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
