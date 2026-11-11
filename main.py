@@ -4,7 +4,7 @@ import google.generativeai as genai
 
 app = Flask(__name__)
 
-# Render के Environment Variable से API Key लेना
+# Render Environment Variable
 api_key = os.environ.get("GEMINI_API_KEY")
 
 if api_key:
@@ -19,11 +19,10 @@ def chat():
     try:
         data = request.get_json()
         user_message = data.get("message", "")
-        
+
         if not user_message:
             return jsonify({"error": "Message is required"}), 400
 
-        # सही और स्टेबल मॉडल नाम
         model = genai.GenerativeModel("gemini-1.5-flash-latest")
         response = model.generate_content(user_message)
 
