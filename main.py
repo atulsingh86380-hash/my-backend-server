@@ -22,8 +22,13 @@ def chat():
         if not API_KEY:
             return jsonify({"error": "GEMINI_API_KEY environment variable missing"}), 500
 
-        gemini_model = "gemini-3.8-flash"
-        url = "https://generativelanguage.googleapis.com/v1beta/models/" + gemini_model + ":generateContent?key=" + API_KEY
+        # प्राथमिकता क्रम: जो भी मॉडल फ्री होगा, तुरंत जवाब देगा
+        models = [
+            "gemini-3.8-flash",
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro"
+        ]
 
         payload = {
             "contents": [
@@ -32,16 +37,26 @@ def chat():
                 }
             ]
         }
-
         headers = {"Content-Type": "application/json"}
-        response = requests.post(url, json=payload, headers=headers)
-        res_data = response.json()
 
-        if response.status_code != 200:
-            return jsonify({"error": res_data}), response.status_code
+        last_error = None
+        for model in models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={API_KEY}"
+            try:
+                response = requests.post(url, json=payload, headers=headers, timeout=15)
+                res_data = response.json()
 
-        ai_reply = res_data["candidates"][0]["content"]["parts"][0]["text"]
-        return jsonify({"reply": ai_reply})
+                if response.status_code == 200:
+                    ai_reply = res_data["candidates"][0]["content"]["parts"][0]["text"]
+                    return jsonify({"reply": ai_reply, "model": model})
+                
+                last_error = res_data
+            except Exception as req_err:
+                last_error = str(req_err)
+                continue
+
+        # अगर सभी मॉडल बिजी हों
+        return jsonify({"error": last_error}), 503
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
