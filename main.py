@@ -23,7 +23,7 @@ def chat():
             return jsonify({"error": "GEMINI_API_KEY environment variable missing"}), 500
 
         # Google Gemini का सीधा REST API एंडपॉइंट
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={API_KEY}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={API_KEY}"
         
         payload = {
             "contents": [
