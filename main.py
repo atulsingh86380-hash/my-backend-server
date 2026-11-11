@@ -22,7 +22,7 @@ def chat():
         if not user_message:
             return jsonify({"error": "No message provided"}), 400
 
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-1.5-flash-latest")
         response = model.generate_content(user_message)
         
         return jsonify({"reply": response.text})
