@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 from flask import Flask, request, jsonify
 
@@ -22,12 +23,10 @@ def chat():
         if not API_KEY:
             return jsonify({"error": "GEMINI_API_KEY environment variable missing"}), 500
 
-        # प्राथमिकता क्रम: जो भी मॉडल फ्री होगा, तुरंत जवाब देगा
+        # केवल वर्तमान एक्टिव और सपोर्टेड मॉडल्स
         models = [
             "gemini-3.8-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash",
-            "gemini-1.5-pro"
+            "gemini-3.8-flash-lite"
         ]
 
         payload = {
@@ -40,22 +39,31 @@ def chat():
         headers = {"Content-Type": "application/json"}
 
         last_error = None
+
+        # 503 लोड से निपटने के लिए रिट्राई + फॉलबैक
         for model in models:
             url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={API_KEY}"
-            try:
-                response = requests.post(url, json=payload, headers=headers, timeout=15)
-                res_data = response.json()
+            for attempt in range(2):  # हर मॉडल को 2 बार मौका (अस्थायी 503 से बचने के लिए)
+                try:
+                    response = requests.post(url, json=payload, headers=headers, timeout=15)
+                    res_data = response.json()
 
-                if response.status_code == 200:
-                    ai_reply = res_data["candidates"][0]["content"]["parts"][0]["text"]
-                    return jsonify({"reply": ai_reply, "model": model})
-                
-                last_error = res_data
-            except Exception as req_err:
-                last_error = str(req_err)
-                continue
+                    if response.status_code == 200:
+                        ai_reply = res_data["candidates"][0]["content"]["parts"][0]["text"]
+                        return jsonify({"reply": ai_reply, "model": model})
 
-        # अगर सभी मॉडल बिजी हों
+                    last_error = res_data
+
+                    # अगर 503 हाई डिमांड है तो 1.5 सेकंड रुककर दोबारा कोशिश
+                    if response.status_code == 503:
+                        time.sleep(1.5)
+                        continue
+                    else:
+                        break  # 404 या अन्य एरर होने पर सीधे अगले मॉडल पर जाएं
+                except Exception as req_err:
+                    last_error = str(req_err)
+                    time.sleep(1)
+
         return jsonify({"error": last_error}), 503
 
     except Exception as e:
