@@ -8,7 +8,7 @@ API_KEY = os.environ.get("GEMINI_API_KEY")
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "Server is running successfully!"})
+    return jsonify({"status": "running", "message": "AI Backend Server is Online!"})
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -22,9 +22,8 @@ def chat():
         if not API_KEY:
             return jsonify({"error": "GEMINI_API_KEY environment variable missing"}), 500
 
-        # Google Gemini का सीधा REST API एंडपॉइंट
-url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
-        
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={API_KEY}"
+
         payload = {
             "contents": [
                 {
@@ -40,11 +39,11 @@ url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash
         if response.status_code != 200:
             return jsonify({"error": res_data}), response.status_code
 
-        bot_reply = res_data["candidates"][0]["content"]["parts"][0]["text"]
-        return jsonify({"reply": bot_reply})
+        ai_reply = res_data["candidates"][0]["content"]["parts"][0]["text"]
+        return jsonify({"reply": ai_reply})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    app.run(host="0.0.0.0", port=5000)
