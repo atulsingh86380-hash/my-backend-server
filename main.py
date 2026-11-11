@@ -6,7 +6,10 @@ app = Flask(__name__)
 
 # Render के Environment Variable से API Key लेगा
 api_key = os.environ.get("GEMINI_API_KEY")
-if api_key:
+
+if not api_key:
+    print("Warning: GEMINI_API_KEY not found in environment!")
+else:
     genai.configure(api_key=api_key)
 
 @app.route("/", methods=["GET"])
@@ -16,15 +19,18 @@ def home():
 @app.route("/chat", methods=["POST"])
 def chat():
     try:
+        if not api_key:
+            return jsonify({"error": "GEMINI_API_KEY environment variable is missing on server"}), 500
+
         data = request.get_json()
-        user_message = data.get("message", "")
-        
+        user_message = data.get("message", "") if data else ""
+
         if not user_message:
             return jsonify({"error": "No message provided"}), 400
 
-        model = genai.GenerativeModel("gemini-1.5-flash-latest")
+        model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(user_message)
-        
+
         return jsonify({"reply": response.text})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
